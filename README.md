@@ -17,3 +17,5 @@ make run
 
 ## 参考サイト
 http://hrb.osask.jp/wiki/?tools/nask
+https://qiita.com/pollenjp/items/8fcb9573cdf2dc6e2668
+https://blog.goo.ne.jp/nekomemo2/e/f9718b447d4461507b182e371009b859

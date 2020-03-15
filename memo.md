@@ -25,3 +25,10 @@
   run: img
 	qemu-system-i386 -drive file=helloos,format=raw,if=floppy -boot a
   ```
+
+* nasmのコンパイルオプション
+  * -o : 指定したファイル名で出力する。
+  * -l : listファイルを出力する。
+    * アセンブラが生成したCPUが実行するバイナリコードと対応するアセンブラがリスト形式で表示される。
+
+参考: https://www.mztn.org/lxasm64/amd02.html
