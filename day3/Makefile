@@ -1,36 +1,31 @@
-default:
+RM=rm
+
+default :
 	make img
 
-ipl10.bin : ipl10.asm Makefile
-	nasm ipl10.asm -o ipl10.bin -l ipl10.lst
+##
+# nasm option
+# -o 出力ファイルの指定
+# -l lstファイルの指定, これでアセンブラと機械語の対応が見れる.
+##
 
-asmhead.bin : asmhead.asm Makefile
-	nasm asmhead.asm -o asmhead.bin -l asmhead.lst
+ipl.bin : ipl10.asm Makefile
+	nasm ipl10.asm -o ipl.bin -l ipl.lst
 
-nasmfunc.o : nasmfunc.asm Makefile          # nasmfunc.nasのバイナリファイル作成	
-	nasm -g -f elf nasmfunc.asm -o nasmfunc.o
+helloos.img: ipl.bin Makefile
+	cat ipl.bin > helloos.img
 
-bootpack.hrb : bootpack.c har.ld  nasmfunc.o Makefile     # リンカスクリプトを使用
-	gcc -march=i486 -m32 -nostdlib -T har.ld -g -fno-pic bootpack.c nasmfunc.o -o bootpack.hrb
+img: ipl.bin Makefile
+	make -r helloos.img
 
-haribote.sys : asmhead.bin bootpack.hrb Makefile
-	cat asmhead.bin bootpack.hrb > haribote.sys
+asm:
+	make -r ipl.bin
 
-haribote.img : ipl10.bin haribote.sys Makefile
-	mformat -f 1440 -C -B ipl10.bin -i haribote.img ::
-	mcopy haribote.sys -i haribote.img ::
-
-	# コマンド 
-
-asm :
-	make -r ipl10.bin
-
-img :
-	make -r haribote.img
-
-run :
+run:
 	make img
-	qemu-system-i386 -fda haribote.img  # -fda追加
+	qemu-system-i386 -drive file=helloos.img,format=raw,if=floppy -boot a
 
-clean :
-	rm *.lst *.bin *.sys *.img *.hrb *.o
+# commandとか大体宣言するよね
+clean:
+	${RM} ipl.bin
+	${RM} ipl.lst
