@@ -1,0 +1,13 @@
+     1                                  ; haribote.asm
+     2                                  ; tab=4
+     3                                  
+     4                                  	ORG		0xc200
+     5                                  
+     6 00000000 B013                    	MOV 	AL, 0x13
+     7 00000002 B400                    	MOV		AH, 0x00
+     8 00000004 CD10                    	INT 	0x10
+     9                                  
+    10                                  fin:
+    11 00000006 F4                      	HLT
+    12 00000007 EBFD                    	JMP		fin
+    13                                  
