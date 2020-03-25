@@ -1,0 +1,11 @@
+     1                                  ; nasmfunc
+     2                                  ; tab=4
+     3                                  
+     4                                  ; for object file
+     5                                  section .text
+     6                                  	GLOBAL	_io_hlt
+     7                                  
+     8                                  ; 実際の関数
+     9                                  _io_hlt: 
+    10 00000000 F4                      	HLT
+    11 00000001 C3                      	RET
