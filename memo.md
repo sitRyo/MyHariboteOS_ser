@@ -45,5 +45,28 @@
   * 割り込みフラグを1にする(すなわち割り込みできるようにする)
 * EFLAGS
   * キャリーフラグや割り込みフラグなどが詰まった32bitのレジスタのこと。
+  * 本編では割り込みフラグが1である状態を再現するためにEFLAGSを保存し、STIで保存したEFLAGSを使って割り込みフラグが1の状態を復元した。
 * ディスプレイとVRAMについて
   * 0xa0000 + x + y * 320
+
+## Day5
+* struct BOOTINFO
+  |メンバ|size|内容|
+  |:---:|:---:|:---:|
+  |cyls|char|読み出した位置を保存|
+  |leds|char|LED状態を保存(for keyboard?)|
+  |vmode|char|画面の状態|
+  |reserve|char|?|
+  |scrnx|short|画面の大きさ(width)|
+  |scrny|short|画面の大きさ(height)|
+  |vram|int|vramのメモリマップ(0x000a0000 0 0 0 \| 先頭から0x0ff8 0x0ff9 0x0ffa 0x0ffb)|
+
+参考 http://bttb.s1.valueserver.jp/wordpress/blog/2017/12/17/makeos-5-2/
+
+* -fno-pieオプションについて
+自作sprintfをコンパイルするに当たって改めて調べたので書いてみる。
+pieとはposition independent executablesの略で日本語だと位置独立実行形式のこと。
+pie形式ではPIEバイナリとその依存関係はアプリケーションが実行されるたびに仮想メモリ内のランダムな場所にロードされる。
+したがってリターン志向プログラミング(ROP?????)攻撃の実行を妨げる効果がある。
+
+これ以上必要になったらここ読めばよさそう。 https://access.redhat.com/blogs/766093/posts/1975793

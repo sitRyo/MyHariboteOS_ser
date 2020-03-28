@@ -1,0 +1,145 @@
+     1                                  ; haribote-os boot asm
+     2                                  ; TAB=4
+     3                                  
+     4                                  BOTPAK	EQU		0x00280000		; bootpackのロード先
+     5                                  DSKCAC	EQU		0x00100000		; ディスクキャッシュの場所
+     6                                  DSKCAC0	EQU		0x00008000		; ディスクキャッシュの場所（リアルモード）
+     7                                  
+     8                                  ; BOOT_INFO関係
+     9                                  CYLS	EQU		0x0ff0			; ブートセクタが設定する
+    10                                  LEDS	EQU		0x0ff1
+    11                                  VMODE	EQU		0x0ff2			; 色数に関する情報。何ビットカラーか？
+    12                                  SCRNX	EQU		0x0ff4			; 解像度のX
+    13                                  SCRNY	EQU		0x0ff6			; 解像度のY
+    14                                  VRAM	EQU		0x0ff8			; グラフィックバッファの開始番地
+    15                                  
+    16                                  		ORG		0xc200			; このプログラムがどこに読み込まれるのか
+    17                                  
+    18                                  ; 画面モードを設定
+    19                                  
+    20 00000000 B013                    		MOV		AL,0x13			; VGAグラフィックス、320x200x8bitカラー
+    21 00000002 B400                    		MOV		AH,0x00
+    22 00000004 CD10                    		INT		0x10
+    23 00000006 C606F20F08              		MOV		BYTE [VMODE],8	; 画面モードをメモする（C言語が参照する）
+    24 0000000B C706F40F4001            		MOV		WORD [SCRNX],320
+    25 00000011 C706F60FC800            		MOV		WORD [SCRNY],200
+    26 00000017 66C706F80F00000A00      		MOV		DWORD [VRAM],0x000a0000
+    27                                  
+    28                                  ; キーボードのLED状態をBIOSに教えてもらう
+    29                                  
+    30 00000020 B402                    		MOV		AH,0x02
+    31 00000022 CD16                    		INT		0x16 			; keyboard BIOS
+    32 00000024 A2F10F                  		MOV		[LEDS],AL
+    33                                  
+    34                                  ; PICが一切の割り込みを受け付けないようにする
+    35                                  ;	AT互換機の仕様では、PICの初期化をするなら、
+    36                                  ;	こいつをCLI前にやっておかないと、たまにハングアップする
+    37                                  ;	PICの初期化はあとでやる
+    38                                  
+    39 00000027 B0FF                    		MOV		AL,0xff
+    40 00000029 E621                    		OUT		0x21,AL
+    41 0000002B 90                      		NOP						; OUT命令を連続させるとうまくいかない機種があるらしいので
+    42 0000002C E6A1                    		OUT		0xa1,AL
+    43                                  
+    44 0000002E FA                      		CLI						; さらにCPUレベルでも割り込み禁止
+    45                                  
+    46                                  ; CPUから1MB以上のメモリにアクセスできるように、A20GATEを設定
+    47                                  
+    48 0000002F E8B500                  		CALL	waitkbdout
+    49 00000032 B0D1                    		MOV		AL,0xd1
+    50 00000034 E664                    		OUT		0x64,AL
+    51 00000036 E8AE00                  		CALL	waitkbdout
+    52 00000039 B0DF                    		MOV		AL,0xdf			; enable A20
+    53 0000003B E660                    		OUT		0x60,AL
+    54 0000003D E8A700                  		CALL	waitkbdout
+    55                                  
+    56                                  ; プロテクトモード移行
+    57                                  
+    58 00000040 0F0116[2A01]            		LGDT	[GDTR0]			; 暫定GDTを設定
+    59 00000045 0F20C0                  		MOV		EAX,CR0
+    60 00000048 6625FFFFFF7F            		AND		EAX,0x7fffffff	; bit31を0にする（ページング禁止のため）
+    61 0000004E 6683C801                		OR		EAX,0x00000001	; bit0を1にする（プロテクトモード移行のため）
+    62 00000052 0F22C0                  		MOV		CR0,EAX
+    63 00000055 EB00                    		JMP		pipelineflush
+    64                                  pipelineflush:
+    65 00000057 B80800                  		MOV		AX,1*8			;  読み書き可能セグメント32bit
+    66 0000005A 8ED8                    		MOV		DS,AX
+    67 0000005C 8EC0                    		MOV		ES,AX
+    68 0000005E 8EE0                    		MOV		FS,AX
+    69 00000060 8EE8                    		MOV		GS,AX
+    70 00000062 8ED0                    		MOV		SS,AX
+    71                                  
+    72                                  ; bootpackの転送
+    73                                  
+    74 00000064 66BE[30010000]          		MOV		ESI,bootpack	; 転送元
+    75 0000006A 66BF00002800            		MOV		EDI,BOTPAK		; 転送先
+    76 00000070 66B900000200            		MOV		ECX,512*1024/4
+    77 00000076 E87500                  		CALL	memcpy
+    78                                  
+    79                                  ; ついでにディスクデータも本来の位置へ転送
+    80                                  
+    81                                  ; まずはブートセクタから
+    82                                  
+    83 00000079 66BE007C0000            		MOV		ESI,0x7c00		; 転送元
+    84 0000007F 66BF00001000            		MOV		EDI,DSKCAC		; 転送先
+    85 00000085 66B980000000            		MOV		ECX,512/4
+    86 0000008B E86000                  		CALL	memcpy
+    87                                  
+    88                                  ; 残り全部
+    89                                  
+    90 0000008E 66BE00820000            		MOV		ESI,DSKCAC0+512	; 転送元
+    91 00000094 66BF00021000            		MOV		EDI,DSKCAC+512	; 転送先
+    92 0000009A 66B900000000            		MOV		ECX,0
+    93 000000A0 8A0EF00F                		MOV		CL,BYTE [CYLS]
+    94 000000A4 6669C900120000          		IMUL	ECX,512*18*2/4	; シリンダ数からバイト数/4に変換
+    95 000000AB 6681E980000000          		SUB		ECX,512/4		; IPLの分だけ差し引く
+    96 000000B2 E83900                  		CALL	memcpy
+    97                                  
+    98                                  ; asmheadでしなければいけないことは全部し終わったので、
+    99                                  ;	あとはbootpackに任せる
+   100                                  
+   101                                  ; bootpackの起動
+   102                                  
+   103 000000B5 66BB00002800            		MOV		EBX,BOTPAK
+   104 000000BB 66678B4B10              		MOV		ECX,[EBX+16]
+   105 000000C0 6683C103                		ADD		ECX,3			; ECX += 3;
+   106 000000C4 66C1E902                		SHR		ECX,2			; ECX /= 4;
+   107 000000C8 7410                    		JZ		skip			; 転送するべきものがない
+   108 000000CA 66678B7314              		MOV		ESI,[EBX+20]	; 転送元
+   109 000000CF 6601DE                  		ADD		ESI,EBX
+   110 000000D2 66678B7B0C              		MOV		EDI,[EBX+12]	; 転送先
+   111 000000D7 E81400                  		CALL	memcpy
+   112                                  skip:
+   113 000000DA 66678B630C              		MOV		ESP,[EBX+12]	; スタック初期値
+   114 000000DF 66EA1B0000001000        		JMP		DWORD 2*8:0x0000001b
+   115                                  
+   116                                  waitkbdout:
+   117 000000E7 E464                    		IN		 AL,0x64
+   118 000000E9 2402                    		AND		 AL,0x02
+   119 000000EB 75FA                    		JNZ		waitkbdout		; ANDの結果が0でなければwaitkbdoutへ
+   120 000000ED C3                      		RET
+   121                                  
+   122                                  memcpy:
+   123 000000EE 66678B06                		MOV		EAX,[ESI]
+   124 000000F2 6683C604                		ADD		ESI,4
+   125 000000F6 66678907                		MOV		[EDI],EAX
+   126 000000FA 6683C704                		ADD		EDI,4
+   127 000000FE 6683E901                		SUB		ECX,1
+   128 00000102 75EA                    		JNZ		memcpy			; 引き算した結果が0でなければmemcpyへ
+   129 00000104 C3                      		RET
+   130                                  ; memcpyはアドレスサイズプリフィクスを入れ忘れなければ、ストリング命令でも書ける
+   131                                  
+   132 00000105 <res 0000000B>          		ALIGNB	16
+   132          ******************       warning: uninitialized space declared in .text section: zeroing
+   133                                  GDT0:
+   134 00000110 00<rept>                		times 8 db 0 			; ヌルセレクタ
+   135 00000118 FFFF00000092CF00        		DW		0xffff,0x0000,0x9200,0x00cf	; 読み書き可能セグメント32bit
+   136 00000120 FFFF0000289A4700        		DW		0xffff,0x0000,0x9a28,0x0047	; 実行可能セグメント32bit（bootpack用）
+   137                                  
+   138 00000128 0000                    		DW		0
+   139                                  GDTR0:
+   140 0000012A 1700                    		DW		8*3-1
+   141 0000012C [10010000]              		DD		GDT0
+   142                                  
+   143                                  		ALIGNB	16
+   144                                  bootpack:

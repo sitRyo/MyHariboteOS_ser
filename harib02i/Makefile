@@ -1,0 +1,45 @@
+default:
+	make img
+
+ipl10.bin : ipl10.asm Makefile
+	nasm ipl10.asm -o ipl10.bin -l ipl10.lst
+
+asmhead.bin : asmhead.asm Makefile
+	nasm asmhead.asm -o asmhead.bin -l asmhead.lst
+
+nasmfunc.o: nasmfunc.asm Makefile
+	nasm -f elf nasmfunc.asm -o nasmfunc.o -l nasmfunc.lst # -fは出力するファイル形式を指定する。ここではlinuxの実行ファイルフォーマットのelf
+
+# m32つけないと64bit elf形式でコンパイルされてしまうのでbootpack.hrbと実行ファイルの整合性が取れなくなる。
+# -c でリンカの処理をスキップ
+# -fno-pieで実行ファイルをPIE(Position Independent Executables)にしないように設定する。
+# これにより依存関係にあるバイナリを異なる仮想メモリ上で個別に実行することが可能になり、セキュリティが高まるらしい(いまいちわかってない。このオプションを使うことでオブジェクトファイルがどう変わるとか.)。
+mysprintf.o: mysprintf.c har.ld Makefile
+	gcc -fno-pie -march=i486 -m32 -c -nostdlib mysprintf.c -o mysprintf.o
+
+bootpack.hrb : bootpack.c har.ld nasmfunc.o mysprintf.o Makefile       # Cファイルをリンカスクリプトを用いてコンパイル
+	gcc -fno-pie -march=i486 -m32 -nostdlib -T har.ld hankaku.c mysprintf.o bootpack.c nasmfunc.o -o bootpack.hrb
+
+haribote.sys : asmhead.bin bootpack.hrb Makefile
+	cat asmhead.bin bootpack.hrb > haribote.sys
+
+haribote.img : ipl10.bin haribote.sys Makefile
+	mformat -f 1440 -C -B ipl10.bin -i haribote.img ::
+	mcopy haribote.sys -i haribote.img ::
+
+asm :
+	make -r ipl10.bin
+
+img :
+	make -r haribote.img
+
+run :
+	make img
+	qemu-system-i386 -fda haribote.img  # "-fda" for floppy disk
+
+debug :
+	make img
+	qemu-system-i386 -fda haribote.img -gdb tcp::10000 -S
+
+clean :
+	rm *.lst *.bin *.sys *.img *.hrb *.o 
