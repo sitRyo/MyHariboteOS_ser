@@ -70,3 +70,44 @@ pie形式ではPIEバイナリとその依存関係はアプリケーション�
 したがってリターン志向プログラミング(ROP?????)攻撃の実行を妨げる効果がある。
 
 これ以上必要になったらここ読めばよさそう。 https://access.redhat.com/blogs/766093/posts/1975793
+
+* GDT, IDT
+  * GDTはセグメンテーションを参照テーブル。IDTは割り込みされた際にどのセグメントを実行するかを指定するテーブル。
+
+## Day6
+前日はGDT(global (segment) descriptor table), IDT(interrupt descriptor table)の初期化まで実装
+
+* Makefileの一般規則、生成規則
+  * 生成規則はラベルが具体的なもの。
+  * 一般規則は生成規則が存在しないものに対して行う。
+  ```Makefile
+  %.o: %.c Makefile # % はラベル
+    $(CC) $(CFLAG) $*.c -o $*.o # $*はターゲットのプレフィックス
+  ```
+* GDTR
+  * 指定されたリミットと番地を格納するレジスタ
+    * LGDT(asm)命令によって指定したアドレスから6byteのデータをGDTRに格納する。
+* SEGMENT DESCRIPTOR
+  * 64bit(8byteの構造体)　下位ビットから見て配置は以下の通り
+
+  |メンバ|size|内容|
+  |:---:|:---:|:---:|
+  |limit_low|short|リミットの下位16bit|
+  |base_low|short|セグメントの開始アドレス下位16bit|
+  |base_mid|char|セグメントの開始アドレス中位8bit|
+  |access right|char|アクセス権限8bit|
+  |limit_high|4bit|リミットの上位4bit|
+  |extend access right|4bit|拡張アクセス権限(GD00,と解釈される。Gはこのセグメントをページとして扱うか？Dは16bitor32bitモードかを決定する。)|
+  |base_high|char|セグメントの開始アドレス上位8bit|
+  
+  * limit => 20bit, base address => 32bit, access right => 12bit が分割されてglobal descriptor tableに入っている。すごくわかりづらい。
+
+* PIC
+  * programmable interruput controllerの略。
+  * 外部装置のアクセス場所を設定する。
+  * IMR
+    * IMRはPICのレジスタで割り込み目隠しレジスタという名前。
+    * レジスタの容量は1byte(=8bit)でそれぞれのbitはIRQに対応し、1のときは信号を無視する(=割り込みを受け付けない)。
+  * ICW
+    * 初期化制御データ。それぞれ8bitのレジスタ。
+    * ICW3はマスタースレーブ接続に関する設定。何番のIRQにスレーブがつながっているかを8bitで設定する。
