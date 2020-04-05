@@ -133,7 +133,9 @@ void sheet_slide(struct SHTCTL *ctl, struct SHEET *sht, int vx0, int vy0) {
 	sht->vx0 = vx0;
 	sht->vy0 = vy0;
 	if (sht->height >= 0) { // 表示中なら(-1以外は表示される)
+		// 最初にbuf_backが描画されるので古い座標にあったマウスは消される。
 		sheet_refreshsub(ctl, old_vx0, old_vy0, old_vx0 + sht->bxsize, old_vy0 + sht->bysize);
+		// 新しい座標のマウスを描画。
 		sheet_refreshsub(ctl, vx0, vy0, vx0 + sht->bxsize, vy0 + sht->bysize);
 	}
 	return;
@@ -143,6 +145,6 @@ void sheet_free(struct SHTCTL *ctl, struct SHEET *sht) {
 	if (sht->height >= 0) {
 		sheet_updown(ctl, sht, -1); // シートを表示させないようにする。
 	}
-	sht->flags = 0; /* ���g�p�}�[�N */
+	sht->flags = 0;
 	return;
 }
