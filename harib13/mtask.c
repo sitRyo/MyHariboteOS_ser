@@ -10,6 +10,11 @@ struct TASK *task_now(void) {
 
 void task_add(struct TASK *task) {
 	struct TASKLEVEL *tl = &taskctl->level[task->level];
+
+	// 本書に手抜きしたと書いてあったので。
+	if (tl->running > MAX_TASKS) {
+		return;
+	}
 	tl->tasks[tl->running] = task;
 	tl->running++;
 	task->flags = 2;
