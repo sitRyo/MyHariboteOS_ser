@@ -6,6 +6,7 @@
 ubuntu 18.04LTS 
 NASM version 2.13.02 
 qemu 
+gcc version 9.2.1
 ```
 
 ## 実行
